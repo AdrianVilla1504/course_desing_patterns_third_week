@@ -1,12 +1,19 @@
 from flask_restful import Resource, reqparse
-import json
 from flask import request
 from utils.database_connection import DatabaseConnection
+from utils.authenticator import create_authenticator  # Importando la función de creación de autenticador
 
-def is_valid_token(token):
-    return token == 'abcd1234'
+# Adaptador para el validador de tokens
+class TokenValidatorAdapter:
+    def __init__(self, authenticator):
+        self.authenticator = authenticator
 
+    def is_valid(self, token: str) -> bool:
+        # Usamos el autenticador para validar el token
+        response = self.authenticator.authenticate()
+        return response is None  # Si no hay errores, el token es válido
 
+# Refactorización de la clase FavoritesResource para usar el patrón Adapter
 class FavoritesResource(Resource):
     def __init__(self):
         self.db = DatabaseConnection('favorites.json')
@@ -14,14 +21,16 @@ class FavoritesResource(Resource):
 
         self.favorites = self.db.get_favorites()
 
+        # Creamos el autenticador y adaptamos su interfaz para usarla en lugar de la validación directa
+        authenticator = create_authenticator()
+        self.token_validator = TokenValidatorAdapter(authenticator)
+
     def get(self):
         token = request.headers.get('Authorization')
-        
-        if not token:
-            return {'message': 'Unauthorized access token not found'}, 401
 
-        if not is_valid_token(token):
-            return {'message': 'Unauthorized invalid token'}, 401
+        # Usamos el adaptador para validar el token
+        if not token or not self.token_validator.is_valid(token):
+            return {'message': 'Unauthorized access token not found or invalid'}, 401
 
         return self.db.get_favorites(), 200
 
@@ -30,12 +39,10 @@ class FavoritesResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('user_id', type=int, required=True, help='User ID')
         parser.add_argument('product_id', type=int, required=True, help='Product ID')
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
 
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
-
+        # Usamos el adaptador para validar el token
+        if not token or not self.token_validator.is_valid(token):
+            return {'message': 'Unauthorized access token not found or invalid'}, 401
 
         args = parser.parse_args()
         new_favorite = {
@@ -49,15 +56,13 @@ class FavoritesResource(Resource):
 
     def delete(self):
         token = request.headers.get('Authorization')
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
-
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
-
         parser = reqparse.RequestParser()
         parser.add_argument('user_id', type=int, required=True, help='User ID')
         parser.add_argument('product_id', type=int, required=True, help='Product ID')
+
+        # Usamos el adaptador para validar el token
+        if not token or not self.token_validator.is_valid(token):
+            return {'message': 'Unauthorized access token not found or invalid'}, 401
 
         args = parser.parse_args()
         user_id = args['user_id']
