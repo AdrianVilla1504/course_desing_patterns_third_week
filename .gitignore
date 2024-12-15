@@ -1,0 +1,5 @@
+**/utils/__pycache__/
+**/endpoints/__pycache__/
+/utils/**/__pycache__/
+endpoints/**/__pycache__/
+/venv/
