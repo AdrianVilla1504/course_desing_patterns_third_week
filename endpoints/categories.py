@@ -42,7 +42,7 @@ class CategoriesResource(Resource):
         auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
         if auth_result:
             return auth_result
-        
+
         # Buscar categoría específica si se proporciona un ID
         if category_id is not None:
             category = self.facade.get_category_by_id(category_id)  # Usamos la fachada para obtener la categoría
@@ -50,7 +50,7 @@ class CategoriesResource(Resource):
                 return category
             else:
                 return {'message': 'Category not found'}, 404
-        
+
         return self.facade.get_all_categories()  # Usamos la fachada para obtener todas las categorías
 
     def post(self):
@@ -72,7 +72,7 @@ class CategoriesResource(Resource):
         # Verificar si la categoría ya existe
         if any(cat['name'] == new_category_name for cat in self.facade.categories_data):
             return {'message': 'Category already exists'}, 400
-        
+
         # Crear una nueva categoría
         new_category = {'id': len(self.facade.categories_data) + 1, 'name': new_category_name}
         self.facade.add_category(new_category)  # Usamos la fachada para agregar la categoría

@@ -34,7 +34,7 @@ class FavoritesResource(Resource):
             return auth_result  # Si la autenticación falla, devuelve el mensaje de error.
 
         # Define los parámetros necesarios para la solicitud
-        self.parser.add_argument('user_id', type=int, required=True, help='User ID')
+        self.parser.add_argument('user_id', type=int, required=True, help='User  ID')
         self.parser.add_argument('product_id', type=int, required=True, help='Product ID')
 
         args = self.parser.parse_args()
@@ -46,7 +46,7 @@ class FavoritesResource(Resource):
         # Agrega el nuevo favorito a la lista y a la base de datos
         self.favorites.append(new_favorite)
         self.db.add_favorite(new_favorite)
-        
+
         return {'message': 'Product added to favorites', 'favorite': new_favorite}, 201
 
     def delete(self):
@@ -57,7 +57,7 @@ class FavoritesResource(Resource):
             return auth_result  # Si la autenticación falla, devuelve el mensaje de error.
 
         # Define los parámetros necesarios para la solicitud
-        self.parser.add_argument('user_id', type=int, required=True, help='User ID')
+        self.parser.add_argument('user_id', type=int, required=True, help='User  ID')
         self.parser.add_argument('product_id', type=int, required=True, help='Product ID')
 
         args = self.parser.parse_args()

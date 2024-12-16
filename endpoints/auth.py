@@ -8,6 +8,7 @@ class AuthenticationStrategy:
             return 'abcd12345'  # Token válido
         return None  # No autorizado
 
+
 # Recurso de autenticación
 class AuthenticationResource(Resource):
     def __init__(self):

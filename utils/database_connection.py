@@ -1,5 +1,6 @@
 import json
 
+
 class DatabaseConnection:
     def __init__(self, json_file_path):
         self.json_file_path = json_file_path
@@ -16,8 +17,7 @@ class DatabaseConnection:
     def get_products(self):
         if self.data:
             return self.data.get('products', [])
-        else:
-            return []
+        return []
 
     def add_product(self, new_product):
         if self.data:
@@ -32,8 +32,7 @@ class DatabaseConnection:
     def get_categories(self):
         if self.data:
             return self.data.get('categories', [])
-        else:
-            return []
+        return []
 
     def add_category(self, new_category):
         if self.data:
@@ -43,24 +42,23 @@ class DatabaseConnection:
             with open(self.json_file_path, 'w') as json_file:
                 json.dump(self.data, json_file, indent=4)
         else:
-            print("Error: something went wrond adding category")
+            print("Error: something went wrong adding category")
 
     def remove_category(self, category_name):
         if self.data:
             categories = self.data.get('categories', [])
-            categories = [cat for cat in categories if cat["name"] != category_name] 
+            categories = [cat for cat in categories if cat["name"] != category_name]
             self.data['categories'] = categories
 
             with open(self.json_file_path, 'w') as json_file:
                 json.dump(self.data, json_file, indent=4)
         else:
-            print("Error: something went wrond removing category")
+            print("Error: something went wrong removing category")
 
     def get_favorites(self):
         if self.data:
             return self.data.get('favorites', [])
-        else:
-            return []
+        return []
 
     def add_favorite(self, new_favorite):
         if self.data:
@@ -71,9 +69,6 @@ class DatabaseConnection:
                 json.dump(self.data, json_file, indent=4)
         else:
             print("Error: something went wrong adding the favorite product")
-
-
-
 
             
 

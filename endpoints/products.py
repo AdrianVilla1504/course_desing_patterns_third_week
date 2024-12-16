@@ -28,7 +28,7 @@ class ProductsResource(Resource):
     def __init__(self):
         # Instancia la fachada para simplificar operaciones relacionadas con productos.
         self.facade = ProductFacade()
-        
+
         # Inicializa el parser para manejar los parámetros de la solicitud.
         self.parser = reqparse.RequestParser()
 
@@ -38,7 +38,7 @@ class ProductsResource(Resource):
         auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
         if auth_result:
             return auth_result
-        
+
         # Si se proporciona un ID de producto, se obtiene el producto específico.
         if product_id is not None:
             product = self.facade.get_product_by_id(product_id)  # Usamos la fachada para obtener el producto
@@ -46,7 +46,7 @@ class ProductsResource(Resource):
                 return product
             else:
                 return {'message': 'Product not found'}, 404
-        
+
         # Si no se especifica un ID de producto, devuelve todos los productos.
         return self.facade.products  # Devuelve todos los productos
 
@@ -75,6 +75,6 @@ class ProductsResource(Resource):
 
         # Usa la fachada para agregar el producto.
         self.facade.add_product(new_product)
-        
+
         # Retorna una respuesta indicando que el producto fue agregado correctamente.
         return {'message': 'Product added', 'product': new_product}, 201

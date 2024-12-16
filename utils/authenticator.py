@@ -22,13 +22,13 @@ class Authenticator:
     def authenticate(self):
         """Autentica a un usuario mediante el token de acceso."""
         token = request.headers.get('Authorization')
-        
+
         if not token:
             return {'message': 'Unauthorized access token not found'}, 401
-        
+
         if not self.token_validator.is_valid(token):
             return {'message': 'Unauthorized invalid token'}, 401
-        
+
         return None
 
 # Función de fábrica para crear un objeto Authenticator con un validador
