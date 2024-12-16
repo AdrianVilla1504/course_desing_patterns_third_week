@@ -3,68 +3,64 @@ from flask import request
 from utils.database_connection import DatabaseConnection
 from utils.authenticator import create_authenticator  # Importando la función de creación de autenticador
 
-# Adaptador para el validador de tokens
-class TokenValidatorAdapter:
-    def __init__(self, authenticator):
-        self.authenticator = authenticator
-
-    def is_valid(self, token: str) -> bool:
-        # Usamos el autenticador para validar el token
-        response = self.authenticator.authenticate()
-        return response is None  # Si no hay errores, el token es válido
-
-# Refactorización de la clase FavoritesResource para usar el patrón Adapter
+# Refactorización de la clase FavoritesResource para usar la misma lógica de autenticación
 class FavoritesResource(Resource):
     def __init__(self):
-        self.db = DatabaseConnection('favorites.json')
+        # Conexión a la base de datos de favoritos
+        self.db = DatabaseConnection('db.json')  # Base de datos de favoritos
         self.db.connect()
 
+        # Recuperación de los datos de favoritos
         self.favorites = self.db.get_favorites()
 
-        # Creamos el autenticador y adaptamos su interfaz para usarla en lugar de la validación directa
-        authenticator = create_authenticator()
-        self.token_validator = TokenValidatorAdapter(authenticator)
+        # Inicializa el parser para manejar los parámetros de la solicitud
+        self.parser = reqparse.RequestParser()
 
     def get(self):
-        token = request.headers.get('Authorization')
+        """Obtiene la lista de favoritos del usuario."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result  # Si la autenticación falla, devuelve el mensaje de error.
 
-        # Usamos el adaptador para validar el token
-        if not token or not self.token_validator.is_valid(token):
-            return {'message': 'Unauthorized access token not found or invalid'}, 401
-
+        # Devuelve los favoritos desde la base de datos
         return self.db.get_favorites(), 200
 
     def post(self):
-        token = request.headers.get('Authorization')
-        parser = reqparse.RequestParser()
-        parser.add_argument('user_id', type=int, required=True, help='User ID')
-        parser.add_argument('product_id', type=int, required=True, help='Product ID')
+        """Agrega un producto a los favoritos del usuario."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result  # Si la autenticación falla, devuelve el mensaje de error.
 
-        # Usamos el adaptador para validar el token
-        if not token or not self.token_validator.is_valid(token):
-            return {'message': 'Unauthorized access token not found or invalid'}, 401
+        # Define los parámetros necesarios para la solicitud
+        self.parser.add_argument('user_id', type=int, required=True, help='User ID')
+        self.parser.add_argument('product_id', type=int, required=True, help='Product ID')
 
-        args = parser.parse_args()
+        args = self.parser.parse_args()
         new_favorite = {
             'user_id': args['user_id'],
             'product_id': args['product_id']
         }
 
+        # Agrega el nuevo favorito a la lista y a la base de datos
         self.favorites.append(new_favorite)
         self.db.add_favorite(new_favorite)
+        
         return {'message': 'Product added to favorites', 'favorite': new_favorite}, 201
 
     def delete(self):
-        token = request.headers.get('Authorization')
-        parser = reqparse.RequestParser()
-        parser.add_argument('user_id', type=int, required=True, help='User ID')
-        parser.add_argument('product_id', type=int, required=True, help='Product ID')
+        """Elimina un producto de los favoritos del usuario."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result  # Si la autenticación falla, devuelve el mensaje de error.
 
-        # Usamos el adaptador para validar el token
-        if not token or not self.token_validator.is_valid(token):
-            return {'message': 'Unauthorized access token not found or invalid'}, 401
+        # Define los parámetros necesarios para la solicitud
+        self.parser.add_argument('user_id', type=int, required=True, help='User ID')
+        self.parser.add_argument('product_id', type=int, required=True, help='Product ID')
 
-        args = parser.parse_args()
+        args = self.parser.parse_args()
         user_id = args['user_id']
         product_id = args['product_id']
 
