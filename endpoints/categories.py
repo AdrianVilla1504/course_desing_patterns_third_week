@@ -1,90 +1,106 @@
-from flask import Flask, request
-from flask_restful import Resource, Api, reqparse
-import json
+from flask_restful import Resource, reqparse
 from utils.database_connection import DatabaseConnection
+from utils.authenticator import create_authenticator
 
-def is_valid_token(token):
-    return token == 'abcd1234'
-
-class CategoriesResource(Resource):
+# Fachada para acceder a la base de datos de categorías
+class CategoriesFacade:
     def __init__(self):
-
         self.db = DatabaseConnection('db.json')
         self.db.connect()
-
         self.categories_data = self.db.get_categories()
+
+    def get_category_by_id(self, category_id):
+        """Obtiene una categoría por su ID."""
+        return next((cat for cat in self.categories_data if cat['id'] == category_id), None)
+
+    def get_all_categories(self):
+        """Obtiene todas las categorías."""
+        return self.categories_data
+
+    def add_category(self, category_data):
+        """Agrega una nueva categoría a la base de datos."""
+        self.categories_data.append(category_data)
+        self.db.add_category(category_data)
+
+    def remove_category(self, category_name):
+        """Elimina una categoría de la base de datos."""
+        self.categories_data = [cat for cat in self.categories_data if cat['name'] != category_name]
+        self.db.remove_category(category_name)
+
+# Refactorización de la clase CategoriesResource para usar la fachada
+class CategoriesResource(Resource):
+    def __init__(self):
+        # Instanciamos la fachada de categorías
+        self.facade = CategoriesFacade()
+
+        # Inicializamos el parser para manejar los parámetros de las solicitudes
         self.parser = reqparse.RequestParser()
 
     def get(self, category_id=None):
-        token = request.headers.get('Authorization')
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
+        """Obtiene las categorías."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result
 
+        # Buscar categoría específica si se proporciona un ID
         if category_id is not None:
-            category = next((p for p in self.categories_data if p['id'] == category_id), None)
-            if category is not None:
+            category = self.facade.get_category_by_id(category_id)  # Usamos la fachada para obtener la categoría
+            if category:
                 return category
             else:
                 return {'message': 'Category not found'}, 404
-         
-        return self.categories_data 
+
+        return self.facade.get_all_categories()  # Usamos la fachada para obtener todas las categorías
 
     def post(self):
-        token = request.headers.get('Authorization')
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
+        """Agrega una nueva categoría."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result
 
+        # Definir los argumentos necesarios para la solicitud
         self.parser.add_argument('name', type=str, required=True, help='Name of the category')
- 
         args = self.parser.parse_args()
-        print("*****",args)
         new_category_name = args['name']
+
+        # Validar nombre de categoría
         if not new_category_name:
             return {'message': 'Category name is required'}, 400
 
-        categories = self.categories_data
-        if new_category_name in categories:
+        # Verificar si la categoría ya existe
+        if any(cat['name'] == new_category_name for cat in self.facade.categories_data):
             return {'message': 'Category already exists'}, 400
 
-        new_category = {
-                'id': len(self.categories_data) + 1,
-                'name': new_category_name
-        }
-
-        categories.append(new_category)
-        self.categories_data = categories
-        
-        self.db.add_category(new_category)
+        # Crear una nueva categoría
+        new_category = {'id': len(self.facade.categories_data) + 1, 'name': new_category_name}
+        self.facade.add_category(new_category)  # Usamos la fachada para agregar la categoría
 
         return {'message': 'Category added successfully'}, 201
 
     def delete(self):
-        token = request.headers.get('Authorization')
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
+        """Elimina una categoría."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result
 
-        args = self.parser.parse_args()
+        # Definir los argumentos para la solicitud
         self.parser.add_argument('name', type=str, required=True, help='Name of the category')
         args = self.parser.parse_args()
         category_name = args['name']
- 
+
+        # Validar nombre de categoría
         if not category_name:
             return {'message': 'Category name is required'}, 400
 
-        category_to_remove = next((cat for cat in self.categories_data if cat["name"] == category_name), None)
-
-        if category_to_remove is None:
+        # Buscar y eliminar la categoría
+        category_to_remove = next((cat for cat in self.facade.categories_data if cat["name"] == category_name), None)
+        if not category_to_remove:
             return {'message': 'Category not found'}, 404
-        else:
-            categories = [cat for cat in self.categories_data if cat["name"] != category_to_remove]
-            self.categories_data = categories
-            self.db.remove_category(category_name)
 
-            return {'message': 'Category removed successfully'}, 200
+        # Eliminar categoría de la lista y la base de datos
+        self.facade.remove_category(category_name)  # Usamos la fachada para eliminar la categoría
 
+        return {'message': 'Category removed successfully'}, 200

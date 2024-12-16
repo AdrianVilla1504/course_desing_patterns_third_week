@@ -1,61 +1,80 @@
 from flask_restful import Resource, reqparse
-import json
 from flask import request
 from utils.database_connection import DatabaseConnection
+from utils.authenticator import create_authenticator
 
-def is_valid_token(token):
-    return token == 'abcd1234'
+# Fachada para manejar la base de datos de productos
+class ProductFacade:
+    def __init__(self):
+        self.db = DatabaseConnection('db.json')  # Conexión a la base de datos.
+        self.db.connect()
+        self.products = self.db.get_products()
 
+    def get_product_by_id(self, product_id):
+        """Obtiene un producto por su ID."""
+        return next((p for p in self.products if p['id'] == product_id), None)
+
+    def filter_products_by_category(self, category):
+        """Filtra productos por categoría."""
+        return [p for p in self.products if p['category'].lower() == category.lower()]
+
+    def add_product(self, product_data):
+        """Agrega un nuevo producto a la base de datos."""
+        self.products.append(product_data)
+        self.db.add_product(product_data)
+
+# Refactorización de la clase ProductsResource para usar la fachada y la autenticación.
 class ProductsResource(Resource):
     def __init__(self):
-       
-        self.db = DatabaseConnection('db.json')
-        self.db.connect()
+        # Instancia la fachada para simplificar operaciones relacionadas con productos.
+        self.facade = ProductFacade()
 
-        self.products = self.db.get_products()
+        # Inicializa el parser para manejar los parámetros de la solicitud.
         self.parser = reqparse.RequestParser()
-        
+
     def get(self, product_id=None):
-        args = self.parser.parse_args()
-        token = request.headers.get('Authorization')
-        category_filter = request.args.get('category')
-      
-        if not token:
-            return { 'message': 'Unauthorized acces token not found'}, 401
+        """Obtiene productos o un producto específico."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result
 
-        if not is_valid_token(token):
-           return { 'message': 'Unauthorized invalid token'}, 401
-
-        if category_filter:
-            filtered_products = [p for p in self.products if p['category'].lower() == category_filter.lower()]
-            return filtered_products 
-        
+        # Si se proporciona un ID de producto, se obtiene el producto específico.
         if product_id is not None:
-            product = next((p for p in self.products if p['id'] == product_id), None)
-            if product is not None:
+            product = self.facade.get_product_by_id(product_id)  # Usamos la fachada para obtener el producto
+            if product:
                 return product
             else:
                 return {'message': 'Product not found'}, 404
-              
-        return self.products
+
+        # Si no se especifica un ID de producto, devuelve todos los productos.
+        return self.facade.products  # Devuelve todos los productos
 
     def post(self):
-        token = request.headers.get('Authorization')
-        parser = reqparse.RequestParser()
-        parser.add_argument('name', type=str, required=True, help='Name of the product')
-        parser.add_argument('category', type=str, required=True, help='Category of the product')
-        parser.add_argument('price', type=float, required=True, help='Price of the product')
+        """Agrega un nuevo producto."""
+        authenticator = create_authenticator()  # Creación del objeto Authenticator utilizando la fábrica.
+        auth_result = authenticator.authenticate()  # Autenticación con el patrón Estrategia.
+        if auth_result:
+            return auth_result
 
-        args = parser.parse_args()
+        # Define los parámetros esperados para la solicitud.
+        self.parser.add_argument('name', type=str, required=True, help='Name of the product')
+        self.parser.add_argument('category', type=str, required=True, help='Category of the product')
+        self.parser.add_argument('price', type=float, required=True, help='Price of the product')
+
+        # Parsea los argumentos de la solicitud.
+        args = self.parser.parse_args()
+
+        # Crea el nuevo producto.
         new_product = {
-            'id': len(self.products) + 1,
+            'id': len(self.facade.products) + 1,
             'name': args['name'],
             'category': args['category'],
             'price': args['price']
         }
 
-        self.products.append(new_product)
-        self.db.add_product(new_product)
-        return {'mensaje': 'Product added', 'product': new_product}, 201
+        # Usa la fachada para agregar el producto.
+        self.facade.add_product(new_product)
 
-
+        # Retorna una respuesta indicando que el producto fue agregado correctamente.
+        return {'message': 'Product added', 'product': new_product}, 201
